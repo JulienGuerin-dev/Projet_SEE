@@ -1,0 +1,5 @@
+1) Installer la libgpiod et ces outils
+
+2) vérifier dans ./usr/bin si les commandes gpio y sont avec "ls /usr/bin | grep gpio"
+
+
