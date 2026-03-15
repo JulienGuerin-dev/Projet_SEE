@@ -1,0 +1,28 @@
+## Les commandes pour communiquer en ethernet
+
+1) "ip a" ou "ip addr" pour voir les differentes IP de l'appareil selon son type de reseau (ethernet, wifi, loopback ...) 
+ - "lo" pour loopback
+ - "eth" pour ethernet et "enpXsY" pour ethernet PCI (X=bus PCI et Y=slot)
+ - "enx<MAC>" pour Interface réseau identifé par sa MAC (souvent pour USB Ethernet)
+ - "wlan" pour wifi
+ - "sit" pour tunnel IPv6 sur IPv4
+ 
+2) "ping <addr ip>" permet de voir si la communication est possible entre cette appareil et celui dont on précise l'IP
+ 
+3) "ping6 <addr IPv6>" si un des deux appareils ne possède qu'un IPv6 et non IPv4
+
+3 bis) Parfois "ping6 <addr IPv6>%<Interface reseau>" marche mieux en citant l'interace reseau que cette appareil doit utiliser
+
+4) "ip neigh" ou "ip -6 neigh" pour voir les appareil voisins qui sont sur le même reseau
+ 
+5) si aucune communication possible avec la STM32, il faut créer un nouveau "profil" dans les paramètres Linux dans "network" et ajouter un nouveau reseau
+
+6) "ssh <utilisateur>@<addr IPv4>" ou "ssh -6 <utilisateur>@<IPv6>%<interface reseau>" pour ouvrir un terminal distant securisé et communication chiffrée et remplace la communication UART
+
+7) "scp fichier.txt <usr>@[.....]:/tmp/" pour copier un fichier sur la STM32 dans le dossier /tmp
+
+8) Si problème de communication en ssh avec le "password", vérifier que le package "dropbear" soit installé avec "which dropbear". Sinon, l'installer dans la config buildroot
+
+9) "sudo ip addr add <IPv4>/24 dev <Interface reseau>" pour créer une IPv4 puis "sudo ip link set <Interface reseau> up" pour la réveiller (up) 
+
+
