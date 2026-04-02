@@ -22,13 +22,13 @@
 ### Méthode 2 : En local sans besoin de flasher un fichier sur la carte SD
 1) Trouver le chemin absolu du fichier "rootfs.ext4" qui est dans ./buildroot/output/images" => copier le path
 
-2) faire "sudo mout /path/de/rootfs.ext4 /mnt" où /mnt est un dossier déjà présent la racine qui va nous permettre de simuler notre OS embarqué
+2) faire "sudo mount /path/de/rootfs.ext4 /mnt" où /mnt est un dossier déjà présent la racine qui va nous permettre de simuler notre OS embarqué
 
 3) faire "cd /mnt" 
 
-4) faire "ls /lib | grep libgpiod" pour vérifier si la librairi est intallée => il devrait y avoir 3 ou 4 sorties du style "libgpiod.cxx" "libgpiod.so" etc...
+4) faire "ls ./lib | grep libgpiod" pour vérifier si la librairi est intallée => il devrait y avoir 3 ou 4 sorties du style "libgpiod.cxx" "libgpiod.so" etc...
 
-5) faire "ls /usr/bin | grep gpio" pour vérifier si les commandes sont bien installées et utilisables => il devrait apparaitre "gpiodetect" "gpioinfo" etc...
+5) faire "ls ./usr/bin | grep gpio" pour vérifier si les commandes sont bien installées et utilisables => il devrait apparaitre "gpiodetect" "gpioinfo" etc...
 
 
 
