@@ -26,3 +26,7 @@
 9) "sudo ip addr add <IPv4>/24 dev <Interface reseau>" pour créer une IPv4 puis "sudo ip link set <Interface reseau> up" pour la réveiller (up) 
 
 
+## Trouver l'ip de la carte sans UART 
+1) utiliser la commande "nmap -sn <IPv4/x>" où l'ipv4 est celui du PC et le "/x" est souvent /24. Cela affiche les appareils branché au même réseau (ethernet ici)
+
+

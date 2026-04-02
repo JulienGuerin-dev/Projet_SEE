@@ -1,0 +1,7 @@
+## Créer un module driver
+
+1) créer un dossier "mon_driver" dans le dossier package de buildroot
+
+2) y créer 3 fichiers : Config.in , mon_driver.c et mon_driver.mk et les remplir
+
+3) ajouter dans /package/Config.in ce nouveau module pour le retrouver dans menuconfig : "source "package/mon_driver/Config.in""
