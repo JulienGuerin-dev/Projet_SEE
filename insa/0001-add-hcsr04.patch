@@ -1,0 +1,18 @@
+--- a/arch/arm/boot/dts/st/stm32mp157c-dk2.dts.orig	2025-12-18 12:55:23.000000000 +0000
++++ a/arch/arm/boot/dts/st/stm32mp157c-dk2.dts	2026-04-04 09:32:55.004772520 +0000
+@@ -26,6 +26,15 @@
+ 	};
+ };
+ 
++/ {             /* je veux ajouter des choses à la racine de l'arbre */
++    hc_sr04 {                              /* nom de ton noeud */
++        compatible = "hc-sr04";           /* type de driver associé */
++        trig-gpios = <&gpioa 12 GPIO_ACTIVE_HIGH>;  /* broche TRIG */
++        echo-gpios = <&gpioa 11 GPIO_ACTIVE_HIGH>;  /* broche ECHO */
++        status = "okay";                  /* périphérique activé */
++    };
++};
++
+ &cryp1 {
+ 	status = "okay";
+ };

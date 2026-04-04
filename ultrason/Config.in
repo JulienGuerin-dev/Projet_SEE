@@ -1,0 +1,6 @@
+config BR2_PACKAGE_ULTRASON
+	bool "ultrason"
+	depends on BR2_LINUX_KERNEL
+	help
+	  Module noyau Linux pour la STM32MP157C.
+	  Compile ultrason.c en module noyau .ko.

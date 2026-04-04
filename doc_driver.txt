@@ -20,6 +20,12 @@
 
 3) faire "cat /proc/devices | grep mon_driver" pour trouver le majeur adéquat
 
+4) Créer le noeud avec "mknod /dev/mon_driver c 245 0" où 245 est le majeur et 0 le mineur
+
+5) utiliser la commande "cat dev/mon_driver" pour venir le lire et donc activer la fonction "read" du fichier.c
+
+6) pour arrêter, faire un "rm dev/mon_driver" puis "rmmod mon_driver"
+
 
 ## Modification du DTS pour les GPIOs
 Dans le cas où le driver doit utiliser de gpios, il faut faire des étapes en amont de la compilation pour modifier le dts et informer de l'activation des gpios
