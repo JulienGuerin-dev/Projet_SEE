@@ -2,6 +2,47 @@
 
 1) créer un dossier "mon_driver" dans le dossier package de buildroot
 
-2) y créer 3 fichiers : Config.in , mon_driver.c et mon_driver.mk et les remplir
+2) y créer 4 fichiers : Config.in , mon_driver.c, mon_driver.mk et Makefile et les remplir
 
 3) ajouter dans /package/Config.in ce nouveau module pour le retrouver dans menuconfig : "source "package/mon_driver/Config.in""
+
+4) Le cocher dans buildroot menuconfig pour le selectionner. 
+
+5) faire un make pour le compiler dans l'image 
+
+
+
+## Utiliser le driver sur la carte 
+
+1) Aller dans /lib/modules/6.12.63/updates pour trouver les driver.ko
+
+2) faire "insmod" ou "rmmod" pour charger ou décharger le driver
+
+3) faire "cat /proc/devices | grep mon_driver" pour trouver le majeur adéquat
+
+
+## Modification du DTS pour les GPIOs
+Dans le cas où le driver doit utiliser de gpios, il faut faire des étapes en amont de la compilation pour modifier le dts et informer de l'activation des gpios
+
+1) Aller dans output/build/linux-6.12.63/arch/arm/boot/dts/st/
+
+2) trouver le dts correspondant : ici c'est stm32mp157c-dk2.dts
+
+3) en faire un copie dans le même dossier sous le nom "stm32mp157c-dk2.dts.orig"
+
+4) apporter les modifications souhaitées pour le capteur dans stm32mp157c-dk2.dts
+
+5) retourner dans le dossier /output/build
+
+6) faire la commande : diff -u linux-6.12.63/arch/arm/boot/dts/st/stm32mp157c-dk2.dts.orig         linux-6.12.63/arch/arm/boot/dts/st/stm32mp157c-dk2.dts         > /home/developer/Documents/STM32_OS/buildroot/board/insa/0001-add-hcsr04.patch
+
+Cette commande va créer un fichier .patch dans le dossier /board/insa qui contiendra seulement les modifications que nous voulons apporter au dts lors de la compilation.
+
+7) ouvrir menuconfig et ajouter le chemin board/insa/ dans "Custom Kernel patches" qui se trouve dans Kernel
+
+8) sauvegarder cette configuration dans le .config
+
+9) Supprimer le dossier "linux-6.12.63" qui est dans output/build/ pour être sûr de le recompiler
+
+10) lancer la compilation et flasher sur la carte
+
