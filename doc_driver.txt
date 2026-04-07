@@ -52,3 +52,18 @@ Cette commande va créer un fichier .patch dans le dossier /board/insa qui conti
 
 10) lancer la compilation et flasher sur la carte
 
+
+ ## Communiquer avec la carte (driver) en ssh
+ 
+ ### Methode classique 
+ 1) "ssh root@10.42.0.17 'cat /dev/ultrason' > distance.txt" pour recevoir la valeur via le buffer ubuf et l'enregistrer directement dans un fichier
+ 
+ 2) probèlme : le mot de passe sera demandé à chaque fois
+ 
+ 
+ ### Methode avec clé ssh
+ 1) "ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa_ultrason" pour créer une clé sur notre PC (Attention : Ne pas rentrer de mot de passe (vide)
+ 
+ 2) "ssh-copy-id -i ~/.ssh/id_rsa_ultrason.pub root@10.42.0.17" pour copier la clé publique directement sur la carte (il faudra taper une fois seulement le mot de passe de la carte)
+ 
+ 3) "ssh root@10.42.0.17 'cat /dev/ultrason' > distance.txt" pour recevoir la valeur via le buffer ubuf et l'enregistrer directement dans un fichier

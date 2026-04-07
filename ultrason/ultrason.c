@@ -1,3 +1,5 @@
+#include <linux/fs.h>              /* file_operations, register_chrdev, copy_to_user */
+#include <linux/uaccess.h>         /* copy_to_user : transfert noyau -> espace utilisateur */
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/kernel.h>
@@ -9,162 +11,157 @@
 #include <linux/interrupt.h>
 #include <linux/sysfs.h>
 #include <linux/completion.h>
-#include <linux/fs.h>         // Pour file_operations et register_chrdev
-#include <linux/uaccess.h>    // Pour copy_to_user
 
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Driver ultrason pour HC-SR04²");
-MODULE_VERSION("1.0");
+MODULE_LICENSE("GPL");                        /* licence obligatoire pour accéder aux fonctions noyau */
+MODULE_DESCRIPTION("Driver ultrason HC-SR04"); /* description visible avec modinfo */
+MODULE_AUTHOR("Julien Guerin");                    /* auteur visible avec modinfo */
+MODULE_VERSION("1.0");                        /* version visible avec modinfo */
 
-struct hcsr04_data {
-    struct gpio_desc *trig_gpio;
-    struct gpio_desc *echo_gpio;
+struct hcsr04_id {
+    struct gpio_desc *gpio_trig;    /* descripteur GPIO pour la broche TRIG (sortie) */
+    struct gpio_desc *gpio_echo;    /* descripteur GPIO pour la broche ECHO (entrée) */
     int irq;                        // Numéro de l'interruption
-    ktime_t echo_start;             // Timestamp au front montant
-    ktime_t echo_stop;              // Timestamp au front descendant
-    struct completion measurement_done;
+    ktime_t start;             // Timestamp au front montant
+    ktime_t end;              // Timestamp au front descendant
+    struct completion measurement;
 };
 
-static struct hcsr04_data *hcsr04_dev_data;
-static int major_number; // Stocke le numéro majeur de notre Character Device
+static struct hcsr04_id *hcsr04_driver;
+
+static int major;                   /* numéro majeur alloué dynamiquement par register_chrdev */
+static char buf[32];                /* buffer noyau contenant la distance formatée en chaîne */
+
 
 static irqreturn_t hcsr04_irq_handler(int irq, void *dev_id) {
-    struct hcsr04_data *data = dev_id;
+    struct hcsr04_id *driver = dev_id;
 
-    int val = gpiod_get_value(data->echo_gpio);
+    int val = gpiod_get_value(driver->gpio_echo);
 
     if(val == 1){
-        data->echo_start = ktime_get();
+        driver->start = ktime_get();
     }else if (val == 0){
-        data->echo_stop = ktime_get();
-        complete(&data->measurement_done);
+        driver->end = ktime_get();
+        complete(&(driver->measurement));
     }
 
     return IRQ_HANDLED;
 }
 
-// --- 2. Fonction Read du Character Device ---
-static ssize_t hcsr04_read(struct file *file, char __user *user_buf, size_t count, loff_t *ppos) {
-    struct hcsr04_data *data = hcsr04_dev_data;
-    char kbuf[32]; // Buffer côté noyau
-    int len;
-    s64 time_us;
-    int distance_cm;
+static ssize_t dev_read(struct file *fp, char __user *ubuf, size_t len, loff_t *off)
+/* fonction appelée automatiquement par le noyau lors d'un read() ou cat /dev/ultrason */
+{
+    printk(KERN_INFO "ultrason : Fonction Read commencé\n");
+    struct hcsr04_id *driver = hcsr04_driver;
+    u32 delta_us;       /* delta de temps en µs entre début et fin du signal ECHO */
+    int distancex10; 
+    int distance_cm;       /* distance calculée en centimètres */
+    int distance_decimal;   
+    
+    
+    //Debug
+    ktime_t startDEBUG, endDEBUG;  
+    u32 delta_DEBUG;       
 
-    // Si on a déjà lu (EOF), on s'arrête
-    if (*ppos > 0)
+    if (*off > 0)        /* si déjà lu, retourner 0 = fin de fichier pour éviter une boucle infinie */
         return 0;
+        
+    reinit_completion(&(driver->measurement));
 
-    reinit_completion(&data->measurement_done);
-
-    // Déclenchement
-    gpiod_set_value(data->trig_gpio, 1);
-    udelay(10);
-    gpiod_set_value(data->trig_gpio, 0);
+    gpiod_set_value(driver->gpio_trig, 0); /* assure que TRIG est à l'état bas avant de commencer */
+    udelay(2);                     /* attente 2µs pour stabiliser le signal */
+    printk(KERN_INFO "ultrason : Envoie de TRIG\n");
+    gpiod_set_value(driver->gpio_trig, 1); /* TRIG à l'état haut : début de l'impulsion */
+    udelay(10);                    /* maintien de l'impulsion pendant 10µs comme exigé par le HC-SR04 */
+    gpiod_set_value(driver->gpio_trig, 0); /* TRIG à l'état bas : fin de l'impulsion de déclenchement */
 
     // Attente de l'interruption (timeout de 1 sec)
-    if (wait_for_completion_interruptible_timeout(&data->measurement_done, msecs_to_jiffies(1000)) <= 0) {
+    if (wait_for_completion_interruptible_timeout(&(driver->measurement), msecs_to_jiffies(1000)) <= 0) {
         return -ETIMEDOUT;
     }
 
-    // Calcul avec ktime_us_delta (CONSIGNE RESPECTÉE)
-    time_us = ktime_us_delta(data->echo_stop, data->echo_start);
-    distance_cm = time_us / 58;
+    printk(KERN_INFO "ultrason : Calcul du delta et distance\n");
+    delta_us = (u32)ktime_us_delta(driver->end, driver->start); /* calcul du delta en µs entre end et start */
+    distancex10 = (int)(delta_us*10/ 58)+7;           /* conversion en cm : distance = delta_us / 58 */
+    distance_cm = (int)distancex10/10;
+    distance_decimal = distancex10-distance_cm*10;
+    printk(KERN_INFO "ultrason: %u µs -> %d.%d cm\n", delta_us, distance_cm, distance_decimal); /* affichage dans dmesg */
 
-    // Formatage de la chaîne dans notre buffer noyau
-    len = snprintf(kbuf, sizeof(kbuf), "%d\n", distance_cm);
+    snprintf(buf, sizeof(buf), "%d.%d cm\n", distance_cm, distance_decimal); /* formatage de la distance en chaîne dans le buffer noyau */
 
-    // Copie vers l'espace utilisateur (CONSIGNE RESPECTÉE)
-    if (copy_to_user(user_buf, kbuf, len)) {
-        return -EFAULT;
-    }
+    if (copy_to_user(ubuf, buf, strlen(buf))) /* transfert du buffer noyau vers l'espace utilisateur */
+        return -EFAULT;                       /* retourne une erreur si le transfert échoue */
 
-    *ppos += len;
-    return len;
+    *off = strlen(buf);              /* indique que la lecture a eu lieu pour éviter une relecture infinie */
+    return strlen(buf);    /* retourne le nombre d'octets écrits pour signaler la fin de la lecture */
 }
 
-// Structure associant nos fonctions aux opérations de fichier
-static struct file_operations hcsr04_fops = {
-    .owner = THIS_MODULE,
-    .read = hcsr04_read,
+static struct file_operations fops = {
+    .owner = THIS_MODULE, /* pointeur vers le module courant */
+    .read  = dev_read,    /* associe l'opération read() à notre fonction dev_read */
 };
 
-
-// --- 3. Probe & Remove ---
-static int hcsr04_probe(struct platform_device *pdev) {
-    struct device *dev = &pdev->dev;
-    struct hcsr04_data *data;
+static int ultrason_probe(struct platform_device *pdev)
+/* fonction appelée automatiquement par le noyau quand il trouve compatible = "hc-sr04" dans le DTS */
+{
     int ret;
-
-    dev_info(dev, "Probing HC-SR04 driver\n");
-
-    data = devm_kzalloc(dev, sizeof(struct hcsr04_data), GFP_KERNEL);
-    if (!data) return -ENOMEM;
+    struct hcsr04_id *driver;
+    dev_info(&pdev->dev, "Probing HC-SR04 driver\n");
+    
+    driver = devm_kzalloc(&pdev->dev, sizeof(struct hcsr04_id), GFP_KERNEL);
+    if (!driver) return -ENOMEM;
 
     // Sauvegarde dans le pointeur global pour le read()
-    hcsr04_dev_data = data;
-    init_completion(&data->measurement_done);
+    hcsr04_driver = driver;
+    init_completion(&(driver->measurement));
+    
+    /* récupère GPIO TRIG depuis le DTS via "trig-gpios", configuré en sortie à l'état bas */
+    driver->gpio_trig = devm_gpiod_get(&pdev->dev, "trig", GPIOD_OUT_LOW);
 
-    data->trig_gpio = devm_gpiod_get(dev, "trig", GPIOD_OUT_LOW);
-    if (IS_ERR(data->trig_gpio)) return PTR_ERR(data->trig_gpio);
+    /* récupère GPIO ECHO depuis le DTS via "echo-gpios", configuré en entrée */
+    driver->gpio_echo = devm_gpiod_get(&pdev->dev, "echo", GPIOD_IN);
+    
+    driver->irq = gpiod_to_irq(driver->gpio_echo);
+    if (driver->irq < 0) return driver->irq;
 
-    data->echo_gpio = devm_gpiod_get(dev, "echo", GPIOD_IN);
-    if (IS_ERR(data->echo_gpio)) return PTR_ERR(data->echo_gpio);
-
-    data->irq = gpiod_to_irq(data->echo_gpio);
-    if (data->irq < 0) return data->irq;
-
-    ret = devm_request_irq(dev, data->irq, hcsr04_irq_handler, 
+    ret = devm_request_irq(&pdev->dev, driver->irq, hcsr04_irq_handler, 
                            IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-                           pdev->name, data);
-    if (ret) return ret;
+                           "hcsr04", driver);
+     if (ret) return ret;
 
-    platform_set_drvdata(pdev, data);
+    /* enregistre le driver comme character device, 0 = numéro majeur alloué automatiquement */
+    major = register_chrdev(0, "ultrason", &fops);
 
-    // Enregistrement du Character Device (CONSIGNE RESPECTÉE)
-    // Le premier 0 demande au noyau de choisir un Major Number dynamiquement
-    major_number = register_chrdev(0, "hcsr04", &hcsr04_fops);
-    if (major_number < 0) {
-        dev_err(dev, "Erreur lors de l'enregistrement du chrdev\n");
-        return major_number;
-    }
+    /* affiche le numéro majeur dans dmesg pour savoir quelle commande mknod utiliser */
+    printk(KERN_INFO "ultrason: chargé, majeur = %d\n", major);
+    printk(KERN_INFO "ultrason: mknod /dev/ultrason c %d 0\n", major);
 
-    dev_info(dev, "HC-SR04 enregistré avec le Major Number %d\n", major_number);
-    return 0;
+    return 0; /* retourne 0 = succès */
 }
 
-static void hcsr04_remove(struct platform_device *pdev) {
-    unregister_chrdev(major_number, "hcsr04");
-    dev_info(&pdev->dev, "HC-SR04 driver removed\n");
+static void ultrason_remove(struct platform_device *pdev)
+/* fonction appelée lors du rmmod, retourne void imposé par le noyau Linux 6.x */
+{
+    unregister_chrdev(major, "ultrason"); /* désenregistre le character device et libère le numéro majeur */
+    printk(KERN_INFO "ultrason: déchargé\n"); /* confirmation du déchargement dans dmesg */
 }
 
-static const struct of_device_id hcsr04_ids[] = {
-    {.compatible = "hc-sr04"},
-    {/* end node*/}
+/* table de correspondance entre le DTS et ce driver */
+static const struct of_device_id ultrason_of_match[] = {
+    { .compatible = "hc-sr04" }, /* doit correspondre exactement au compatible dans le DTS */
+    { }                          /* entrée vide obligatoire pour terminer le tableau */
 };
-MODULE_DEVICE_TABLE(of, hcsr04_ids);
+MODULE_DEVICE_TABLE(of, ultrason_of_match); /* exporte la table pour que le noyau fasse la correspondance */
 
-static struct platform_driver hcsr04_driver = {
-    .probe = hcsr04_probe,
-    .remove = hcsr04_remove,
+/* structure décrivant le driver auprès du noyau */
+static struct platform_driver ultrason_driver = {
+    .probe  = ultrason_probe,  /* fonction appelée au chargement quand le DTS correspond */
+    .remove = ultrason_remove, /* fonction appelée au déchargement */
     .driver = {
-        .name = "hcsr04-driver",
-        .of_match_table = hcsr04_ids,
+        .name           = "ultrason",        /* nom du driver */
+        .of_match_table = ultrason_of_match, /* table de correspondance DTS */
     },
 };
 
-/*
-static int __init kinit(void) {
-    printk(KERN_INFO "Init hc-sr04 driver\n");
-    return 0;
-}
-
-static void __exit kexit(void) {
-    printk(KERN_INFO "Exit hc-sr04 drive\n");
-}
-
-module_init(kinit);
-module_exit(kexit);
-*/
-module_platform_driver(hcsr04_driver); // Remplace tout ce qu'il y a au dessus
-
+/* remplace module_init et module_exit pour un platform driver */
+/* enregistre et désenregistre automatiquement le driver au chargement et déchargement */
+module_platform_driver(ultrason_driver);
