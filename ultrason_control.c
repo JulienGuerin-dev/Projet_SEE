@@ -7,7 +7,7 @@
 #define DEVICE_PATH "/dev/ultrason"
 #define SSH_PATH "~/.ssh/id_rsa_ultrason"
 #define USER "root"
-#define IP4 "10.42.0.17"
+#define IP4 "10.42.0.15"
 #define MAJOR_NUM 245
 #define MINOR_NUM 0
 
@@ -40,6 +40,19 @@ int main(int argc, char *argv[]) {
             else
                 printf("Erreur lors de la création du device.\n");
             return ret;
+        } else if (strcmp(argv[1], "infinit") == 0) {
+  
+          while (1) {
+            snprintf(command, sizeof(command), 
+                 //"ssh -i %s %s@%s 'cat %s' > distance.txt", SSH_PATH, USER, IP4, DEVICE_PATH);    // Pour enregistrer la mesure dans le fichier
+                 "ssh -i %s %s@%s 'cat %s' | tee distance.txt", SSH_PATH, USER, IP4, DEVICE_PATH);  // Pour enregistrer la mesure ET l'afficher sur le terminal
+            ret = system(command);
+            if (ret != 0) {
+                printf("Erreur lors de la récupération de la distance via SSH\n");
+                return ret;
+            }
+            usleep(10000); // 10 ms
+          }
         } else if (strcmp(argv[1], "remove") == 0) {
             printf("Suppression du device et déchargement du module...\n");
             snprintf(command, sizeof(command), "ssh -i %s %s@%s 'rm -f %s'", SSH_PATH, USER, IP4, DEVICE_PATH);
