@@ -226,4 +226,4 @@ L'interface affiche en temps réel :
 
 ## Auteurs
 
-Antoine Gouezel, Dan Gruette, Ziad Tahti et Julien Guérin — Projet étudiant open source
+Antoine Gouezel, Dan Gruette, Ziad Tahti et Julien Guérin
