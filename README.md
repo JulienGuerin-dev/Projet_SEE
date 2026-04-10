@@ -62,17 +62,15 @@ pip install numpy scipy matplotlib
 ├── ultrason/                   # Package Buildroot du driver (code source .c)
 ├── src/
 │   └── ultrason_control.c      # Code source de l'exécutable de contrôle
-├── ultrason_control             # Exécutable compilé prêt à l'emploi
+│   └── distance.txt            # Fichier dans lequel les mesures sont enregistrées   
+├── ultrason_control            # Exécutable compilé prêt à l'emploi
 ├── Makefile                    # Pour recompiler ultrason_control
-├── affichage.py                # Interface graphique temps réel
-└── distance.txt                # Fichier dans lequel les mesures sont enregistrées
+└── affichage.py                # Interface graphique temps réel
 ```
 
 ---
 
 ## 4. Créer et flasher l'image sdcard.img
-
-> Si vous souhaitez utiliser directement l'image fournie `sdcard.img`, passez à l'étape [5](#5-préparer-la-connexion-ssh-avec-la-carte).
 
 ### 4.1 Recompiler l'image avec Buildroot
 
@@ -107,7 +105,7 @@ L'image `sdcard.img` générée se trouvera dans `output/images/`.
 
 ### 4.2 Flasher l'image sur la carte SD
 
-Identifier le nom de votre carte SD (par exemple `/dev/sdX`) avec la commande `lsblk`, puis flasher l'image :
+Identifier le nom de votre carte SD (par exemple `/dev/sdX`) avec la commande `dmesg -w`, puis flasher l'image :
 
 ```bash
 sudo dd if=output/images/sdcard.img of=/dev/sdX bs=4M status=progress
@@ -138,7 +136,13 @@ nmap -sn 10.42.0.1/24
 
 Notez l'adresse IPv4 de la carte retournée par `nmap` (par exemple `10.42.0.15`).
 
-### 5.3 Configurer l'exécutable avec l'adresse IP de la carte
+### 5.3 Retourner dans le dossier du projet
+
+```bash
+cd Projet_SEE/
+```
+
+### 5.4 Configurer l'exécutable avec l'adresse IP de la carte
 
 Ouvrir `src/ultrason_control.c` et modifier la ligne :
 
@@ -146,9 +150,9 @@ Ouvrir `src/ultrason_control.c` et modifier la ligne :
 #define IP4 "..."
 ```
 
-en renseignant l'adresse IPv4 de la carte trouvée à l'étape précédente. Modifier également les autres constantes si nécessaire selon votre configuration matérielle.
+en renseignant l'adresse IPv4 de la carte trouvée à l'étape précédente.
 
-### 5.4 Créer une clé SSH
+### 5.5 Créer une clé SSH
 
 Pour éviter les demandes répétées de mot de passe lors des connexions SSH :
 
@@ -156,7 +160,7 @@ Pour éviter les demandes répétées de mot de passe lors des connexions SSH :
 ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa_ultrason
 ```
 
-### 5.5 Copier la clé publique sur la carte
+### 5.6 Copier la clé publique sur la carte
 
 ```bash
 ssh-copy-id -i ~/.ssh/id_rsa_ultrason.pub <user>@<IPv4>
@@ -168,7 +172,7 @@ Exemple :
 ssh-copy-id -i ~/.ssh/id_rsa_ultrason.pub root@10.42.0.15
 ```
 
-### 5.6 Recompiler l'exécutable ultrason_control
+### 5.7 Recompiler l'exécutable ultrason_control
 
 ```bash
 make
@@ -196,17 +200,18 @@ Toutes les commandes suivantes sont à exécuter depuis le terminal du PC client
 
 L'interface graphique permet de visualiser en temps réel les mesures réalisées en mode `infinit`.
 
-### 7.1 Lancer le mode de mesure continue
+### 7.1 Vérifier l'implémentation du driver
 
-Dans un premier terminal, lancer le mode de mesure continue :
+Utiliser les commandes détaillées précédemment pour charger le module et créer le noeud si ce n'est pas déjà le cas
 
 ```bash
-./ultrason_control infinit
+./ultrason_control insmod
+./ultrason_control mknod
 ```
 
 ### 7.2 Lancer l'interface graphique
 
-Dans un second terminal, lancer l'interface graphique :
+Lancer l'interface graphique :
 
 ```bash
 python3 affichage.py
