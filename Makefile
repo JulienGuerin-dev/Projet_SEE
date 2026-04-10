@@ -3,7 +3,7 @@ CFLAGS = -Wall -Wextra
 
 all: ultrason_control
 
-ultrason_control: ultrason_control.c
+ultrason_control: src/ultrason_control.c
 	$(CC) $(CFLAGS) -o $@ $<
 
 clean:

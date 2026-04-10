@@ -45,7 +45,7 @@ def fetch_distance():
             with open(FICHIER_DATA, "r") as f:
                 content = f.read().strip()
                 
-            match = re.search(r'\d+(\.\d+)?', content) #cherche un nombre qui peut avoir des décimales et du texte derrière si jamais (cm dans notre cas)
+            match = re.search(r'\d+(\.\d+)?', content) #cherche un nombre qui peut avoir des décimales et du texte derrière (cm dans notre cas)
             if match:
                 val = float(match.group()) #cast de string en float
                 
