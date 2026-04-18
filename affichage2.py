@@ -12,7 +12,7 @@ PROGRAMME_C = "./ultrason_control"
 ARGUMENT = "infinit"  #argument pour que le programme tourne en continu
 FICHIER_DATA = "distance.txt"
 MAX_POINTS = 1000  # on stocke les 1000 dernières mesures
-REFRESH_RATE = 15 # vitesse de rafraichissement
+REFRESH_RATE = 15 
 
 # couleurs
 BG_COLOR = "#121212"
@@ -20,7 +20,7 @@ PANEL_COLOR = "#1e1e1e"
 TEXT_COLOR = "#ffffff"
 ACCENT_COLOR = "#00bfff"
 
-distances = [] #tableau pour stocker les distances
+distances = [] 
 
 
 try:
@@ -41,31 +41,27 @@ def fetch_distance():
     global distances
     try:
         if os.path.exists(FICHIER_DATA):
-            # on ouvre et on lit le fichier 
             with open(FICHIER_DATA, "r") as f:
                 content = f.read().strip()
                 
             match = re.search(r'\d+(\.\d+)?', content) #cherche un nombre qui peut avoir des décimales et du texte derrière (cm dans notre cas)
             if match:
-                val = float(match.group()) #cast de string en float
-                
-                
-                distances.append(val) #on ajoute la valeur à la liste
+                val = float(match.group()) #cast de string en float              
+                distances.append(val) 
                 if len(distances) > MAX_POINTS: #si on dépasse les 1000 pointsz dans notre tableau on supprime le 1 er élément
                     distances.pop(0)
 
-
                 label_dist.config(text=f"{val:.1f} cm", fg="#00ffcc")# on met à jour l'affichage
                 
-                if len(distances) > 1: # faut au moins 2 valeurs sinon ça n'a pas d'intéret
-                    mean_val = np.mean(distances) #moyenne
-                    std_val = np.std(distances) #écart-type
+                if len(distances) > 1: 
+                    mean_val = np.mean(distances) 
+                    std_val = np.std(distances) 
                     label_stats.config(text=f"Moyenne : {mean_val:.2f} cm\nÉcart-type : {std_val:.2f} cm")
                     update_plot(mean_val, std_val)
         else:
             label_dist.config(text="Fichier absent", fg="orange")
     except Exception:
-        label_dist.config(text="Erreur lecture", fg="#ff4444") #try catch comme en C
+        label_dist.config(text="Erreur lecture", fg="#ff4444") 
     
     root.after(REFRESH_RATE, fetch_distance) #relance le programme du dessus
 
